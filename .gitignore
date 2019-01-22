@@ -1,0 +1,4 @@
+*.user*
+*.crt
+*.key
+*.autosave

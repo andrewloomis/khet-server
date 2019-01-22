@@ -1,0 +1,3 @@
+[submodule "khetlib"]
+	path = khetlib
+	url = https://github.com/andrewloomis/khetlib
