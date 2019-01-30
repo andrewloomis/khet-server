@@ -18,7 +18,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         src/main.cpp \
     src/server.cpp \
-    src/usermanager.cpp
+    src/usermanager.cpp \
+    src/gamemanager.cpp
 
 INCLUDEPATH += inc/ ../
 
@@ -29,7 +30,21 @@ else: unix:!android: target.path = /home/andrew/$${TARGET}/bin
 
 HEADERS += \
     inc/server.h \
-    inc/usermanager.h
+    inc/usermanager.h \
+    inc/gamemanager.h
 
 RESOURCES += \
     res.qrc
+
+win32:CONFIG(release, debug|release): LIBS += -L$$OUT_PWD/../khetlib/release/ -lkhetlib
+else:win32:CONFIG(debug, debug|release): LIBS += -L$$OUT_PWD/../khetlib/debug/ -lkhetlib
+else:unix: LIBS += -L$$OUT_PWD/../khetlib/ -lkhetlib
+
+INCLUDEPATH += $$PWD/../
+DEPENDPATH += $$PWD/../khetlib
+
+win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$OUT_PWD/../khetlib/release/libkhetlib.a
+else:win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$OUT_PWD/../khetlib/debug/libkhetlib.a
+else:win32:!win32-g++:CONFIG(release, debug|release): PRE_TARGETDEPS += $$OUT_PWD/../khetlib/release/khetlib.lib
+else:win32:!win32-g++:CONFIG(debug, debug|release): PRE_TARGETDEPS += $$OUT_PWD/../khetlib/debug/khetlib.lib
+else:unix: PRE_TARGETDEPS += $$OUT_PWD/../khetlib/libkhetlib.a

@@ -47,7 +47,8 @@ void Server::onNewConnection()
             this, &Server::processBinaryMessage);
     connect(pSocket, &QWebSocket::disconnected, this, &Server::socketDisconnected);
 
-    m_clients << pSocket;
+    clients.sockets << pSocket;
+    clients.players << Player{};
 }
 
 void Server::processTextMessage(QString message)
@@ -67,16 +68,19 @@ void Server::processBinaryMessage(QByteArray message)
         qDebug() << "Message Received:" << message;
         auto json = QJsonDocument::fromJson(message).object();
         auto data = json.value("data").toObject();
+        auto user = data["user"].toString();
+        auto socketIndex = clients.sockets.indexOf(pClient);
 
         QJsonObject response;
-        response["user"] = data["user"].toString();
+        response["user"] = user;
         if (json.value("request") == "signup")
         {
             response["response"] = "signup";
-            if (userManager.addNewUser(data["user"].toString(),
+            if (userManager.addNewUser(user,
                                        data["salt"].toString(),
                                        data["hash"].toString()))
             {
+                clients.players[socketIndex].setUsername(user);
                 response["reply"] = "ok";
             }
             else {
@@ -86,9 +90,10 @@ void Server::processBinaryMessage(QByteArray message)
         else if (json.value("request") == "login")
         {
             response["response"] = "login";
-            if (userManager.authUser(data["user"].toString(),
+            if (userManager.authUser(user,
                                      data["hash"].toString()))
             {
+                clients.players[socketIndex].setUsername(user);
                 response["reply"] = "ok";
             }
             else {
@@ -99,18 +104,20 @@ void Server::processBinaryMessage(QByteArray message)
         {
             response["response"] = "logout";
             response["reply"] = "ok";
-            userManager.playerNotOnline(data["user"].toString());
+            userManager.playerNotOnline(user);
+            clients.players[socketIndex].logout();
+            gameManagers.removeAll(getGameManagerForUser(user));
         }
         else if (json.value("request") == "salt")
         {
             response["response"] = "salt";
-            auto salt = userManager.getSaltFromUser(data["user"].toString());
+            auto salt = userManager.getSaltFromUser(user);
             response["reply"] = salt;
         }
         else if (json.value("request") == "online_player_query")
         {
             response["response"] = "online_player_query";
-            auto players = userManager.getOnlinePlayers(data["user"].toString());
+            auto players = userManager.getOnlinePlayers(user);
             QJsonArray playerArray;
             for (auto& player : players)
             {
@@ -118,8 +125,93 @@ void Server::processBinaryMessage(QByteArray message)
             }
             response["reply"] = playerArray;
         }
+        else if (json.value("request") == "game_request")
+        {
+            response["request"] = "game_invite";
+            response["fromUser"] = user;
+            auto opponent = data.value("opponent").toString();
+            for (int i = 0; i < clients.players.length(); i++)
+            {
+                if (clients.players[i].getUsername() == opponent)
+                {
+                    clients.sockets[i]->sendBinaryMessage(QJsonDocument(response).toJson());
+                    return;
+                }
+            }
+        }
+        else if (json.value("reply") == "invite_accepted")
+        {
+            auto opponent = data.value("opponent").toString();
+            response["response"] = "game_request";
+            response["opponent"] = user;
+            response["reply"] = "ok";
+            auto gameManager = std::make_shared<GameManager>(user, opponent);
+            gameManagers.append(gameManager);
+            clients.getSocketForPlayer(opponent)->
+                    sendBinaryMessage(QJsonDocument(response).toJson());
+
+//            auto gameManager = getGameManagerForUser(user);
+            QJsonObject colorMessage;
+            colorMessage["command"] = "set_color";
+            colorMessage["color"] = gameManager->player1Color() ==
+                    Color::Red ? "red" : "grey";
+            clients.getSocketForPlayer(user)->
+                    sendBinaryMessage(QJsonDocument(colorMessage).toJson());
+
+            QJsonObject colorMessage2;
+            colorMessage["command"] = "set_color";
+            colorMessage["color"] = gameManager->player2Color() ==
+                    Color::Red ? "red" : "grey";
+            clients.getSocketForPlayer(opponent)->
+                    sendBinaryMessage(QJsonDocument(colorMessage).toJson());
+            return;
+        }
+        else if (json.value("request") == "turn_complete")
+        {
+            auto gameManager = getGameManagerForUser(user);
+            auto index = data.value("piece_index").toInt();
+            auto angle = data.value("piece_angle").toInt();
+            auto xPos = data.value("x_pos").toInt();
+            auto yPos = data.value("y_pos").toInt();
+            gameManager->executeTurn(static_cast<size_t>(index), angle, Position{xPos, yPos});
+
+            response["command"] = "your_turn";
+            QJsonObject opponentTurnInfo;
+            opponentTurnInfo["piece_index"] = index;
+            opponentTurnInfo["piece_angle"] = angle;
+            opponentTurnInfo["x_pos"] = xPos;
+            opponentTurnInfo["y_pos"] = yPos;
+            response["opponent_turn_info"] = opponentTurnInfo;
+            clients.getSocketForPlayer(gameManager->opponentForPlayer(user))->
+                    sendBinaryMessage(QJsonDocument(response).toJson());
+            return;
+        }
+        else if (json.value("request") == "game_over")
+        {
+            userManager.addGameData(data.value("opponent").toString(), true);
+            userManager.addGameData(data.value("user").toString(), false);
+            gameManagers.removeAll(getGameManagerForUser(user));
+            return;
+        }
+        else if (json.value("request") == "rankings")
+        {
+            response["response"] = "rankings";
+            response["rankings"] = userManager.getRankingsData();
+        }
         pClient->sendBinaryMessage(QJsonDocument(response).toJson());
     }
+}
+
+std::shared_ptr<GameManager> Server::getGameManagerForUser(QString user)
+{
+    for (auto& gameManager : gameManagers)
+    {
+        if (gameManager->containsUser(user))
+        {
+            return gameManager;
+        }
+    }
+    return nullptr;
 }
 
 void Server::socketDisconnected()
@@ -128,7 +220,9 @@ void Server::socketDisconnected()
     QWebSocket *pClient = qobject_cast<QWebSocket *>(sender());
     if (pClient)
     {
-        m_clients.removeAll(pClient);
+        auto socketIndex = clients.sockets.indexOf(pClient);
+        clients.sockets.removeAll(pClient);
+        clients.players.removeAll(clients.players[socketIndex]);
         pClient->deleteLater();
     }
 }
@@ -136,4 +230,16 @@ void Server::socketDisconnected()
 void Server::onSslErrors(const QList<QSslError> &)
 {
     qDebug() << "Ssl errors occurred";
+}
+
+void Server::endGame(QString player1, QString player2, Color winner)
+{
+    QJsonObject message;
+    message["command"] = "game_over";
+    message["winner"] = winner == Color::Red ? "red" : "grey";
+    clients.getSocketForPlayer(player1)->
+            sendBinaryMessage(QJsonDocument(message).toJson());
+    clients.getSocketForPlayer(player2)->
+            sendBinaryMessage(QJsonDocument(message).toJson());
+    gameManagers.removeAll(getGameManagerForUser(player1));
 }

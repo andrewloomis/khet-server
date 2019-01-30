@@ -55,6 +55,57 @@ QList<QString> UserManager::getOnlinePlayers(const QString &username)
     return otherOnlinePlayers;
 }
 
+void UserManager::addGameData(const QString &username, bool winner)
+{
+    if(userData.open(QFile::ReadWrite))
+    {
+        auto contents = userData.readAll();
+        auto json = QJsonDocument::fromJson(contents).object();
+        if (!json.isEmpty())
+        {
+            auto users = json["users"].toObject();
+            if (users.contains(username))
+            {
+                auto user = users[username].toObject();
+                if (winner)
+                {
+                    user["wins"] = user.value("wins").toInt() + 1;
+                }
+                else {
+                    user["losses"] = user.value("losses").toInt() + 1;
+                }
+//                users.remove(username);
+                users[username] = user;
+                json["users"] = users;
+                userData.resize(0);
+                userData.write(QJsonDocument(json).toJson());
+            }
+        }
+        userData.close();
+    }
+}
+
+QJsonObject UserManager::getRankingsData()
+{
+    QJsonObject rankings;
+    QJsonObject users;
+    if (getJSONFromVault(users)&& !users.isEmpty())
+    {
+//        const auto users = json.value("users").toObject();
+        const auto usersList = users.keys();
+
+        for (auto userStr : usersList)
+        {
+            QJsonObject user = users.value(userStr).toObject();
+            QJsonObject userRankings;
+            userRankings["wins"] = user.value("wins");
+            userRankings["losses"] = user.value("losses");
+            rankings[userStr] = userRankings;
+        }
+    }
+    return rankings;
+}
+
 bool UserManager::addNewUser(const QString &username, const QString &salt, const QString &hash)
 {
     if(userData.open(QFile::ReadWrite))
@@ -66,6 +117,8 @@ bool UserManager::addNewUser(const QString &username, const QString &salt, const
             QJsonObject users, user;
             user["salt"] = salt;
             user["hash"] = hash;
+            user["wins"] = 0;
+            user["losses"] = 0;
             users[username] = user;
             json["users"] = users;
             userData.write(QJsonDocument(json).toJson());
@@ -95,6 +148,8 @@ bool UserManager::addNewUser(const QString &username, const QString &salt, const
                 QJsonObject user;
                 user["salt"] = salt;
                 user["hash"] = hash;
+                user["wins"] = 0;
+                user["losses"] = 0;
                 users[username] = user;
                 json["users"] = users;
                 userData.resize(0);

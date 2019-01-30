@@ -12,6 +12,8 @@ public:
     QString getSaltFromUser(const QString& username);
     QList<QString> getOnlinePlayers(const QString& username);
     void playerNotOnline(const QString& username);
+    void addGameData(const QString& username, bool winner);
+    QJsonObject getRankingsData();
 
 private:
     QFile userData{".vault"};
