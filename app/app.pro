@@ -19,7 +19,9 @@ SOURCES += \
         src/main.cpp \
     src/server.cpp \
     src/usermanager.cpp \
-    src/gamemanager.cpp
+    src/gamemanager.cpp \
+    src/aicontroller.cpp \
+    src/packetmanager.cpp
 
 INCLUDEPATH += inc/ ../
 
@@ -31,7 +33,10 @@ else: unix:!android: target.path = /home/andrew/$${TARGET}/bin
 HEADERS += \
     inc/server.h \
     inc/usermanager.h \
-    inc/gamemanager.h
+    inc/gamemanager.h \
+    inc/aicontroller.h \
+    inc/packetmanager.h \
+    inc/customtypes.h
 
 RESOURCES += \
     res.qrc

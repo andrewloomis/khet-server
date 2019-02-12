@@ -1,9 +1,10 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "usermanager.h"
-#include "gamemanager.h"
 #include "khetlib/player.h"
+#include "packetmanager.h"
+#include "customtypes.h"
+
 #include <QtWebSockets/QWebSocketServer>
 #include <QtCore/QList>
 #include <memory>
@@ -15,39 +16,12 @@ public:
     Server();
 
 private:
-    struct Connections {
-        QList<QWebSocket*> sockets;
-        QList<Player> players;
-        Player* getPlayer(const QString& name)
-        {
-            for (int i = 0; i < players.length(); i++)
-            {
-                if (players[i].getUsername() == name)
-                {
-                    return &players[i];
-                }
-            }
-            return nullptr;
-        }
-        QWebSocket* getSocketForPlayer(const QString& name)
-        {
-            for (int i = 0; i < players.length(); i++)
-            {
-                if (players[i].getUsername() == name)
-                {
-                    return sockets[i];
-                }
-            }
-            return nullptr;
-        }
-    } clients;
-
-    std::shared_ptr<GameManager> getGameManagerForUser(QString user);
+    std::shared_ptr<Network::Connections> clients;
 
     QWebSocketServer* server;
-    UserManager userManager;
-    QList<std::shared_ptr<GameManager>> gameManagers;
-//    QList<QWebSocket *> m_clients;
+    PacketManager packetManager;
+//    UserManager userManager;
+//    QList<std::shared_ptr<GameManager>> gameManagers;
     const quint16 port = 60001;
 
 private slots:
@@ -56,7 +30,7 @@ private slots:
     void processBinaryMessage(QByteArray message);
     void socketDisconnected();
     void onSslErrors(const QList<QSslError> &errors);
-    void endGame(QString player1, QString player2, Color winner);
+//    void endGame(QString player1, QString player2, Color winner);
 };
 
 #endif // SERVER_H

@@ -16,8 +16,8 @@ public:
     QJsonObject getRankingsData();
 
 private:
-    QFile userData{".vault"};
-    QList<QString> onlinePlayers;
+    QFile userData{"/usr/local/.vault"};
+    QList<QString> onlinePlayers {"khetai"};
 
     bool getJSONFromVault(QJsonObject& json);
 

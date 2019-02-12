@@ -26,7 +26,6 @@ bool UserManager::authUser(const QString &username, const QString &hash)
 QString UserManager::getSaltFromUser(const QString &username)
 {
     QJsonObject json;
-    qDebug() << json.contains(username);
     if (getJSONFromVault(json) && !json.isEmpty() && json.contains(username))
     {
         auto user = json.value(username).toObject();
@@ -91,7 +90,6 @@ QJsonObject UserManager::getRankingsData()
     QJsonObject users;
     if (getJSONFromVault(users)&& !users.isEmpty())
     {
-//        const auto users = json.value("users").toObject();
         const auto usersList = users.keys();
 
         for (auto userStr : usersList)
