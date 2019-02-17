@@ -23,8 +23,10 @@ public:
                                          "khetai" ? mPlayer1.pieceColor() :
                                                     mPlayer2.pieceColor());
     }
-    void executeTurn(size_t index, int angle, Position pos);
-    void executeTurn(Move move);
+    void printPieceLayout() const;
+//    void executeTurn(size_t index, int angle, Position pos);
+    bool isGameOver() const { return game->isGameOver(); }
+    void executeTurn(const Move& move);
     bool isOpponentAI() const { return opponentAI; }
 
 signals:

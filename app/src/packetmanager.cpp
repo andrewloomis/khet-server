@@ -84,11 +84,15 @@ void PacketManager::handleLogin(const QJsonObject &data, int fromSocketIndex)
 void PacketManager::handleLogout(const QJsonObject &data)
 {
     auto user = extractSenderUsername(data);
-    auto response = makePacket(user, PacketType::Logout);
-    sendMessage(user, response);
+//    auto response = makePacket(user, PacketType::Logout);
+//    sendMessage(user, response);
 
     userManager.playerNotOnline(user);
-    clients->getPlayer(user)->logout();
+    auto player = clients->getPlayer(user);
+    if (player)
+    {
+        player->logout();
+    }
     gameManagers.removeAll(getGameManagerForUser(user));
 }
 
@@ -142,80 +146,70 @@ void PacketManager::handleGameRequest(const QJsonObject &data)
             }
         }
     }
-//        auto gameManager = std::make_shared<GameManager>(user, opponent);
-//        gameManagers.append(gameManager);
-
-//        response["response"] = "game_request";
-//        response["opponent"] = user;
-//        response["reply"] = "ok";
-//        userManager.playerNotOnline(user);
-
-//        QJsonObject colorMessage;
-//        colorMessage["command"] = "set_color";
-//        colorMessage["color"] = gameManager->player1Color() ==
-//                Color::Red ? "red" : "grey";
-//        clients.getSocketForPlayer(user)->
-//                sendBinaryMessage(QJsonDocument(colorMessage).toJson());
-
-//        if (gameManager->player2Color() == Color::Grey)
-//        {
-//            Move move = gameManager->bestAIMove();
-//            gameManager->executeTurn(static_cast<size_t>(move.pieceIndex),
-//                                     move.movedAngle, move.movedPosition);
-
-//            response["command"] = "your_turn";
-//            QJsonObject opponentTurnInfo;
-//            opponentTurnInfo["piece_index"] = move.pieceIndex;
-//            opponentTurnInfo["piece_angle"] = move.movedAngle;
-//            opponentTurnInfo["x_pos"] = move.movedPosition.x;
-//            opponentTurnInfo["y_pos"] = move.movedPosition.y;
-//            response["opponent_turn_info"] = opponentTurnInfo;
-//            clients.getSocketForPlayer(user)->
-//                    sendBinaryMessage(QJsonDocument(response).toJson());
-//        }
-//    }
-
-
-
 }
 
 void PacketManager::handleInviteAccepted(const QJsonObject &data)
 {
     auto user = extractSenderUsername(data);
     auto opponent = data.value("opponent").toString();
+    auto gameManager = std::make_shared<GameManager>(user, opponent);
+    gameManagers.append(gameManager);
+
     if (opponent == "khetai")
     {
         userManager.playerNotOnline(user);
+
+        QJsonObject colorMessage;
+        colorMessage["command"] = "set_color";
+        colorMessage["color"] = gameManager->player1Color() ==
+                Color::Red ? "red" : "grey";
+        sendMessage(user, colorMessage);
+
+        // khetai goes first
+        if (gameManager->player2Color() == Color::Grey)
+        {
+            Move move = gameManager->bestAIMove();
+            gameManager->executeTurn(move);
+
+            auto response = makePacket("khetai", PacketType::TurnComplete);
+
+            QJsonObject opponentTurnInfo;
+            opponentTurnInfo["piece_index"] = move.pieceIndex;
+            opponentTurnInfo["piece_angle"] = move.movedAngle;
+            opponentTurnInfo["x_pos"] = move.movedPosition.x;
+            opponentTurnInfo["y_pos"] = move.movedPosition.y;
+            response["opponent_turn_info"] = opponentTurnInfo;
+            sendMessage(user, response);
+        }
     }
-    auto response = makePacket(user, PacketType::GameRequest);
+    else
+    {
+        auto response = makePacket(user, PacketType::GameRequest);
 
+        response["opponent"] = user;
+        response["reply"] = "ok";
+        userManager.playerNotOnline(user);
+        userManager.playerNotOnline(opponent);
 
-    response["opponent"] = user;
-    response["reply"] = "ok";
-    userManager.playerNotOnline(user);
-    userManager.playerNotOnline(opponent);
+        sendMessage(opponent, response);
 
-    auto gameManager = std::make_shared<GameManager>(user, opponent);
-    gameManagers.append(gameManager);
-    sendMessage(opponent, response);
+        QJsonObject colorMessage;
+        colorMessage["command"] = "set_color";
+        colorMessage["color"] = gameManager->player1Color() ==
+                Color::Red ? "red" : "grey";
+        sendMessage(user, colorMessage);
 
-    QJsonObject colorMessage;
-    colorMessage["command"] = "set_color";
-    colorMessage["color"] = gameManager->player1Color() ==
-            Color::Red ? "red" : "grey";
-    sendMessage(user, colorMessage);
-
-    QJsonObject colorMessage2;
-    colorMessage2["command"] = "set_color";
-    colorMessage2["color"] = gameManager->player2Color() ==
-            Color::Red ? "red" : "grey";
-    sendMessage(opponent, colorMessage2);
+        QJsonObject colorMessage2;
+        colorMessage2["command"] = "set_color";
+        colorMessage2["color"] = gameManager->player2Color() ==
+                Color::Red ? "red" : "grey";
+        sendMessage(opponent, colorMessage2);
+    }
 }
 
 void PacketManager::handleTurnComplete(const QJsonObject &data)
 {
     auto user = extractSenderUsername(data);
-    auto response = makePacket(user, PacketType::TurnComplete);
 
     auto gameManager = getGameManagerForUser(user);
     if (gameManager != nullptr)
@@ -224,15 +218,21 @@ void PacketManager::handleTurnComplete(const QJsonObject &data)
         auto angle = data.value("piece_angle").toInt();
         auto xPos = data.value("x_pos").toInt();
         auto yPos = data.value("y_pos").toInt();
-        gameManager->executeTurn(static_cast<size_t>(index), angle, Position{xPos, yPos});
+        gameManager->executeTurn(Move{index, Position{xPos, yPos}, angle});
+        gameManager->printPieceLayout();
+
 //        response["command"] = "your_turn";
         QJsonObject opponentTurnInfo;
 
-        if (gameManager->opponentForPlayer(user) == "khetai")
+        if (gameManager->opponentForPlayer(user) == "khetai" && !gameManager->isGameOver())
         {
+            auto response = makePacket("khetai", PacketType::TurnComplete);
+
             Move move = gameManager->bestAIMove();
-            gameManager->executeTurn(static_cast<size_t>(move.pieceIndex),
-                                     move.movedAngle, move.movedPosition);
+            gameManager->executeTurn(move);
+            gameManager->printPieceLayout();
+//            gameManager->executeTurn(static_cast<size_t>(move.pieceIndex),
+//                                     move.movedAngle, move.movedPosition);
 
             opponentTurnInfo["piece_index"] = move.pieceIndex;
             opponentTurnInfo["piece_angle"] = move.movedAngle;
@@ -243,6 +243,7 @@ void PacketManager::handleTurnComplete(const QJsonObject &data)
         }
         else
         {
+            auto response = makePacket(user, PacketType::TurnComplete);
             opponentTurnInfo["piece_index"] = index;
             opponentTurnInfo["piece_angle"] = angle;
             opponentTurnInfo["x_pos"] = xPos;

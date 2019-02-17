@@ -3,7 +3,8 @@
 #include <QDebug>
 
 GameManager::GameManager(QString player1, QString player2)
-    : mPlayer1{player1}, mPlayer2{player2}, aicontroller(game)
+    : mPlayer1{player1}, mPlayer2{player2},
+      game(std::make_shared<Game>()), aicontroller(game)
 {
     pickColor();
     if (player2 == "khetai")
@@ -32,26 +33,55 @@ bool GameManager::containsUser(const QString& username)
             mPlayer2.getUsername() == username);
 }
 
-//bool GameManager::syncGame(const Game &otherGame)
+void GameManager::printPieceLayout() const
+{
+    game->printPieceLayout();
+}
+
+void GameManager::executeTurn(const Move& move)
+{
+//    qDebug() << "*index:" << move.pieceIndex
+//             << "*value:" << move.value;
+//    executeTurn(static_cast<size_t>(move.pieceIndex),
+//                move.movedAngle, move.movedPosition);
+    if (move.pieceIndex < 30)
+    {
+        auto pos = move.movedPosition;
+        game->updatePiecePosition(move.pieceIndex, pos.x, pos.y);
+        if (move.movedAngle != -1)
+        {
+            game->updatePieceAngle(move.pieceIndex, move.movedAngle);
+        }
+
+        game->setLastMove(move);
+        game->endTurn();
+//        auto turn = game->currentPlayerTurn();
+//        game->calculateBeamCoords(turn == Color::Red ? 0 : 9,
+//                                 turn == Color::Red ? 0 : 7);
+//        game->nextTurn();
+    }
+    else
+    {
+        qDebug() << "index or angle out of range";
+    }
+}
+
+//void GameManager::executeTurn(size_t index, int angle, Position pos)
 //{
-//    return game == otherGame;
+//    if (index < 30 && angle != -1)
+//    {
+//        game->updatePieceAngle(index, angle);
+//        game->updatePiecePosition(index, pos.x, pos.y);
+//        auto turn = game->currentPlayerTurn();
+//        game->calculateBeamCoords(turn == Color::Red ? 0 : 9,
+//                                 turn == Color::Red ? 0 : 7);
+//        game->nextTurn();
+//    }
+//    else
+//    {
+//        qDebug() << "index or angle out of range";
+//    }
 //}
-
-void GameManager::executeTurn(Move move)
-{
-    executeTurn(static_cast<size_t>(move.pieceIndex),
-                move.movedAngle, move.movedPosition);
-}
-
-void GameManager::executeTurn(size_t index, int angle, Position pos)
-{
-    game->updatePieceAngle(index, angle);
-    game->updatePiecePosition(index, pos.x, pos.y);
-    auto turn = game->currentPlayerTurn();
-    game->calculateBeamCoords(turn == Color::Red ? 0 : 9,
-                             turn == Color::Red ? 0 : 7);
-    game->nextTurn();
-}
 
 QString GameManager::opponentForPlayer(const QString &playerName)
 {
