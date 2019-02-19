@@ -17,7 +17,6 @@ public:
     QString opponentForPlayer(const QString& playerName);
     Color player1Color() const { return mPlayer1.pieceColor(); }
     Color player2Color() const { return mPlayer2.pieceColor(); }
-//    bool syncGame(const Game& otherGame);
     Move bestAIMove() {
         return aicontroller.findBestMove(mPlayer1.getUsername() ==
                                          "khetai" ? mPlayer1.pieceColor() :

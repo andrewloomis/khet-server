@@ -40,10 +40,6 @@ void GameManager::printPieceLayout() const
 
 void GameManager::executeTurn(const Move& move)
 {
-//    qDebug() << "*index:" << move.pieceIndex
-//             << "*value:" << move.value;
-//    executeTurn(static_cast<size_t>(move.pieceIndex),
-//                move.movedAngle, move.movedPosition);
     if (move.pieceIndex < 30)
     {
         auto pos = move.movedPosition;
@@ -52,36 +48,14 @@ void GameManager::executeTurn(const Move& move)
         {
             game->updatePieceAngle(move.pieceIndex, move.movedAngle);
         }
-
         game->setLastMove(move);
         game->endTurn();
-//        auto turn = game->currentPlayerTurn();
-//        game->calculateBeamCoords(turn == Color::Red ? 0 : 9,
-//                                 turn == Color::Red ? 0 : 7);
-//        game->nextTurn();
     }
     else
     {
         qDebug() << "index or angle out of range";
     }
 }
-
-//void GameManager::executeTurn(size_t index, int angle, Position pos)
-//{
-//    if (index < 30 && angle != -1)
-//    {
-//        game->updatePieceAngle(index, angle);
-//        game->updatePiecePosition(index, pos.x, pos.y);
-//        auto turn = game->currentPlayerTurn();
-//        game->calculateBeamCoords(turn == Color::Red ? 0 : 9,
-//                                 turn == Color::Red ? 0 : 7);
-//        game->nextTurn();
-//    }
-//    else
-//    {
-//        qDebug() << "index or angle out of range";
-//    }
-//}
 
 QString GameManager::opponentForPlayer(const QString &playerName)
 {

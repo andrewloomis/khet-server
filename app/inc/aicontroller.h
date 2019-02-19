@@ -11,7 +11,6 @@ public:
     Move findBestMove(Color playerColor);
     Move nextMove(int depth, int totalDepth, Color myColor, Color currentTurnColor, Game currentGame,
                   Move minScoreMoveForAI, Move maxScoreMoveForOpponent, std::vector<Move>* startingMoves = nullptr);
-//    Game nextTurn(Color playerColor, Color playerTurn, Game currentGame);
     std::vector<Move> generatePossibleMoves(Color playerColor, const Game& game);
     int evaluateBoardState(Color playerColor, const Game& game);
 

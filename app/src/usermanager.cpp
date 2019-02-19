@@ -36,7 +36,7 @@ QString UserManager::getSaltFromUser(const QString &username)
 
 void UserManager::playerNotOnline(const QString &username)
 {
-    onlinePlayers.removeOne(username);
+    onlinePlayers.removeAll(username);
 }
 
 QList<QString> UserManager::getOnlinePlayers(const QString &username)

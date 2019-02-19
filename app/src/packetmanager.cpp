@@ -115,7 +115,7 @@ void PacketManager::handleOnlinePlayerQuery(const QJsonObject &data)
 
     auto players = userManager.getOnlinePlayers(user);
     QJsonArray playerArray;
-    for (auto& player : players)
+    for (const auto& player : players)
     {
         playerArray.append(player);
     }
@@ -137,14 +137,7 @@ void PacketManager::handleGameRequest(const QJsonObject &data)
     else
     {
         response["fromUser"] = user;
-        for (int i = 0; i < clients->players.length(); i++)
-        {
-            if (clients->players[i].getUsername() == opponent)
-            {
-                clients->sockets[i]->sendBinaryMessage(QJsonDocument(response).toJson());
-                return;
-            }
-        }
+        sendMessage(opponent, response);
     }
 }
 
@@ -152,13 +145,16 @@ void PacketManager::handleInviteAccepted(const QJsonObject &data)
 {
     auto user = extractSenderUsername(data);
     auto opponent = data.value("opponent").toString();
+    gameManagers.removeAll(getGameManagerForUser(user));
+    gameManagers.removeAll(getGameManagerForUser(opponent));
+    userManager.playerNotOnline(user);
+    if (opponent != "khetai") userManager.playerNotOnline(opponent);
+
     auto gameManager = std::make_shared<GameManager>(user, opponent);
     gameManagers.append(gameManager);
 
     if (opponent == "khetai")
     {
-        userManager.playerNotOnline(user);
-
         QJsonObject colorMessage;
         colorMessage["command"] = "set_color";
         colorMessage["color"] = gameManager->player1Color() ==
@@ -188,8 +184,6 @@ void PacketManager::handleInviteAccepted(const QJsonObject &data)
 
         response["opponent"] = user;
         response["reply"] = "ok";
-        userManager.playerNotOnline(user);
-        userManager.playerNotOnline(opponent);
 
         sendMessage(opponent, response);
 
@@ -212,6 +206,8 @@ void PacketManager::handleTurnComplete(const QJsonObject &data)
     auto user = extractSenderUsername(data);
 
     auto gameManager = getGameManagerForUser(user);
+    qDebug() << "test";
+    gameManager->printPieceLayout();
     if (gameManager != nullptr)
     {
         auto index = data.value("piece_index").toInt();
@@ -221,7 +217,6 @@ void PacketManager::handleTurnComplete(const QJsonObject &data)
         gameManager->executeTurn(Move{index, Position{xPos, yPos}, angle});
         gameManager->printPieceLayout();
 
-//        response["command"] = "your_turn";
         QJsonObject opponentTurnInfo;
 
         if (gameManager->opponentForPlayer(user) == "khetai" && !gameManager->isGameOver())
@@ -251,6 +246,10 @@ void PacketManager::handleTurnComplete(const QJsonObject &data)
             response["opponent_turn_info"] = opponentTurnInfo;
             sendMessage(gameManager->opponentForPlayer(user), response);
         }
+    }
+    else
+    {
+        qDebug() << "gameManager not found";
     }
 }
 
