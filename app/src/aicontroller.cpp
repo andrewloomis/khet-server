@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <QRandomGenerator>
 #include <QDebug>
+#include <algorithm>
 
 AIController::AIController(std::shared_ptr<Game> game)
     : gameState(game)
@@ -11,7 +12,6 @@ AIController::AIController(std::shared_ptr<Game> game)
 
 Move AIController::findBestMove(Color playerColor)
 {
-//    computeTimer.start();
     auto startingMoves = generatePossibleMoves(playerColor, *gameState);
     int i = 0;
     qDebug() << "starting moves for" << (playerColor == Color::Red ? "red" : "grey") << ":";
@@ -35,11 +35,19 @@ Move AIController::findBestMove(Color playerColor)
              << "x:" << actual.movedPosition.x << "y:" << actual.movedPosition.y
              << "angle:" << actual.movedAngle
              << "value:" << move.value << "track:" << move.track;
+    qDebug() << "Times:" << "moveGen:"
+             << std::accumulate(moveGenTimes.begin(),
+                                moveGenTimes.end(), 0)/(uint64_t)moveGenTimes.size()
+             << "gameEval:" << std::accumulate(gameEvalTimes.begin(),
+                                               gameEvalTimes.end(), 0)/(uint64_t)gameEvalTimes.size()
+             << "gameNode:" << std::accumulate(gameNodeTimes.begin(),
+                                               gameNodeTimes.end(), 0)/(uint64_t)gameNodeTimes.size();
     return actual;
 }
 
-Game AIController::createNewGameNode(Game game, const Move &move) const
+Game AIController::createNewGameNode(Game game, const Move &move)
 {
+    computeTimer.restart();
     auto index = static_cast<size_t>(move.pieceIndex);
     Position pos = move.movedPosition;
     game.updatePiecePosition(index, pos.x, pos.y);
@@ -49,6 +57,8 @@ Game AIController::createNewGameNode(Game game, const Move &move) const
     }
     game.setLastMove(move);
     game.endTurn();
+//    gameNodeIterations++;
+    gameNodeTimes.push_back(computeTimer.nsecsElapsed());
     return game;
 }
 
@@ -142,6 +152,7 @@ Move AIController::nextMove(int depth, int totalDepth, Color myColor, Color curr
 
 int AIController::evaluateBoardState(Color playerColor, const Game& game)
 {
+    computeTimer.restart();
     int score = 0;
     auto& pieces = game.getPieces();
     for (auto& piece : pieces)
@@ -159,13 +170,16 @@ int AIController::evaluateBoardState(Color playerColor, const Game& game)
         }
     }
     int variant = QRandomGenerator::global()->bounded(-5000,5000);
+    gameEvalTimes.push_back(computeTimer.nsecsElapsed());
     return score + variant;
 }
 
 std::vector<Move> AIController::generatePossibleMoves(Color playerColor, const Game& game)
 {
+    computeTimer.restart();
     const auto& pieces = game.getPieces();
     std::vector<Move> moves;
+    moves.reserve(80);
     for (auto& piece : pieces)
     {
         if (!piece->isKilled() && piece->color() == playerColor)
@@ -218,6 +232,7 @@ std::vector<Move> AIController::generatePossibleMoves(Color playerColor, const G
 //    temp.push_back(moves[0]);
 //    temp.push_back(moves[1]);
 //    temp.push_back(moves[2]);
+    moveGenTimes.push_back(computeTimer.nsecsElapsed());
     return moves;
 }
 

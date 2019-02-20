@@ -2,10 +2,11 @@
 #include <QRandomGenerator>
 #include <QDebug>
 
-GameManager::GameManager(QString player1, QString player2)
+GameManager::GameManager(QString player1, QString player2, GameConfig config)
     : mPlayer1{player1}, mPlayer2{player2},
       game(std::make_shared<Game>()), aicontroller(game)
 {
+    game->startGame(config);
     pickColor();
     if (player2 == "khetai")
     {

@@ -15,10 +15,15 @@ public:
     int evaluateBoardState(Color playerColor, const Game& game);
 
 private:
-    Game createNewGameNode(Game oldGame, const Move& move) const;
+    Game createNewGameNode(Game oldGame, const Move& move);
 
     std::shared_ptr<Game> gameState;
     QElapsedTimer computeTimer;
+
+    std::vector<unsigned long long> gameNodeTimes;
+    std::vector<unsigned long long> moveGenTimes;
+    std::vector<unsigned long long> gameEvalTimes;
+
 };
 
 #endif // AICONTROLLER_H

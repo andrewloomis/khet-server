@@ -129,6 +129,8 @@ void PacketManager::handleGameRequest(const QJsonObject &data)
     auto response = makePacket(user, PacketType::GameInvite);
 
     auto opponent = data.value("opponent").toString();
+    auto config = data.value("config").toString();
+    response["config"] = config;
     if (opponent == "khetai")
     {
         response["fromUser"] = "khetai";
@@ -150,7 +152,20 @@ void PacketManager::handleInviteAccepted(const QJsonObject &data)
     userManager.playerNotOnline(user);
     if (opponent != "khetai") userManager.playerNotOnline(opponent);
 
-    auto gameManager = std::make_shared<GameManager>(user, opponent);
+    auto configStr = data.value("config").toString();
+    GameConfig config;
+    if (configStr == "imhotep")
+    {
+        config = GameConfig::Imhotep;
+    }
+    else if (configStr == "dynasty")
+    {
+        config = GameConfig::Dynasty;
+    }
+    else {
+        config = GameConfig::Classic;
+    }
+    auto gameManager = std::make_shared<GameManager>(user, opponent, config);
     gameManagers.append(gameManager);
 
     if (opponent == "khetai")
@@ -303,9 +318,6 @@ QJsonObject PacketManager::makePacket(const QString &user, const PacketType &typ
     case PacketType::GameInvite:
         packet["request"] = "game_invite";
         break;
-//    case PacketType::InviteAccepted:
-//        packet["request"] = "game_invite";
-//        break;
     case PacketType::TurnComplete:
         packet["command"] = "your_turn";
         break;

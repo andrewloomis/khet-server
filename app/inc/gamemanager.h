@@ -12,7 +12,7 @@ class GameManager : public QObject
 {
     Q_OBJECT
 public:
-    GameManager(QString player1, QString player2);
+    GameManager(QString player1, QString player2, GameConfig config);
     bool containsUser(const QString& username);
     QString opponentForPlayer(const QString& playerName);
     Color player1Color() const { return mPlayer1.pieceColor(); }
