@@ -16,6 +16,8 @@ public:
 
 private:
     Game createNewGameNode(Game oldGame, const Move& move);
+    Move findBestMoveSingleThreaded(int depth, Color playerColor);
+    Move findBestMoveMultiThreaded(int depth, Color playerColor);
 
     std::shared_ptr<Game> gameState;
     QElapsedTimer computeTimer;
@@ -23,7 +25,8 @@ private:
     std::vector<unsigned long long> gameNodeTimes;
     std::vector<unsigned long long> moveGenTimes;
     std::vector<unsigned long long> gameEvalTimes;
-
+    std::atomic<unsigned long> evaluatedMoves = 0;
+    std::atomic<unsigned long> skippedMoves = 0;
 };
 
 #endif // AICONTROLLER_H

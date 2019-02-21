@@ -221,8 +221,7 @@ void PacketManager::handleTurnComplete(const QJsonObject &data)
     auto user = extractSenderUsername(data);
 
     auto gameManager = getGameManagerForUser(user);
-    qDebug() << "test";
-    gameManager->printPieceLayout();
+//    gameManager->printPieceLayout();
     if (gameManager != nullptr)
     {
         auto index = data.value("piece_index").toInt();
@@ -240,9 +239,6 @@ void PacketManager::handleTurnComplete(const QJsonObject &data)
 
             Move move = gameManager->bestAIMove();
             gameManager->executeTurn(move);
-            gameManager->printPieceLayout();
-//            gameManager->executeTurn(static_cast<size_t>(move.pieceIndex),
-//                                     move.movedAngle, move.movedPosition);
 
             opponentTurnInfo["piece_index"] = move.pieceIndex;
             opponentTurnInfo["piece_angle"] = move.movedAngle;
