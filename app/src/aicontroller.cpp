@@ -14,8 +14,8 @@ AIController::AIController(std::shared_ptr<Game> game)
 Move AIController::findBestMove(Color playerColor)
 {
     computeTimer.restart();
-    int depth = 4;
-    auto move = findBestMoveSingleThreaded(depth, playerColor);
+    int depth = 5;
+    auto move = findBestMoveMultiThreaded(depth, playerColor);
     qDebug() << "Multi:";
     qDebug() << "computed best move in" << computeTimer.elapsed()/1000.0f << "sec";
     qDebug() << "evaluated" << evaluatedMoves << "moves, "
@@ -36,9 +36,12 @@ Move AIController::findBestMoveMultiThreaded(int depth, Color playerColor)
 {
     computeTimer.restart();
     auto startingMoves = generatePossibleMoves(playerColor, *gameState);
+
     std::vector<Move> finalMoves;
     std::atomic_bool isFinalMovesBeingWritten = false;
     std::atomic_bool readingGameState = false;
+    std::atomic_bool isDoneThreadsBeingWritten = false;
+
     finalMoves.reserve(startingMoves.size());
 
     auto maxThreads = std::thread::hardware_concurrency();
@@ -46,7 +49,8 @@ Move AIController::findBestMoveMultiThreaded(int depth, Color playerColor)
              << ":" << startingMoves.size();
     qDebug() << "max threads:" << maxThreads;
     std::vector<std::thread> threads;
-    std::atomic_int doneCounter = 0;
+    std::vector<int> doneThreadTracks;
+    int activeThreads = 0;
     for (int movesComplete = 0;
          movesComplete < startingMoves.size();
          movesComplete++)
@@ -76,14 +80,36 @@ Move AIController::findBestMoveMultiThreaded(int depth, Color playerColor)
             qDebug() << "track:" << finalMove.track << "movetrack:" << track << "value:" << finalMove.value;
             finalMoves.push_back(finalMove);
             isFinalMovesBeingWritten = false;
-//            doneCounter++;
+
+            while(isDoneThreadsBeingWritten);
+            isDoneThreadsBeingWritten = true;
+            doneThreadTracks.push_back(track);
+            isDoneThreadsBeingWritten = false;
         }));
+
+        activeThreads++;
+        while (activeThreads >= maxThreads)
+        {
+            while(isDoneThreadsBeingWritten);
+            isDoneThreadsBeingWritten = true;
+            auto it = doneThreadTracks.begin();
+            for (auto& track : doneThreadTracks)
+            {
+                auto& thread = threads[track];
+                if (thread.joinable())
+                {
+                    thread.join();
+                    doneThreadTracks.erase(it);
+
+                    activeThreads--;
+                }
+                it++;
+            }
+            isDoneThreadsBeingWritten = false;
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(1ms);
+        }
     }
-//    while(doneCounter < threads.size())
-//    {
-//        using namespace std::chrono_literals;
-//        std::this_thread::sleep_for(100ms);
-//    }
     for (auto& thread : threads)
     {
         if (thread.joinable())
@@ -176,23 +202,12 @@ Move AIController::nextMove(int depth, int totalDepth, Color myColor, Color curr
         Move move = currentGame.getLastMove();
         int moveValue = evaluateBoardState(myColor, currentGame);
         move.value = moveValue;
-        if (move.track == -1)
-        {
-            qDebug() << "0*****";
-            currentGame.printPieceLayout();
-            while(1);
-        }
 
         return move;
     }
     std::vector<Move> moves;
     if (depth == totalDepth)
     {
-        if (!startingMoves)
-        {
-            qDebug() << "help";
-            while(1);
-        }
 //        qDebug() << "starting";
         moves = *startingMoves;
     }
@@ -200,12 +215,6 @@ Move AIController::nextMove(int depth, int totalDepth, Color myColor, Color curr
     {
         moves = generatePossibleMoves(currentTurnColor, currentGame);
         int currentTrack = currentGame.getLastMove().track;
-        if (currentTrack == -1)
-        {
-            qDebug() << "first*****" << depth;
-            currentGame.printPieceLayout();
-            while(1);
-        }
 
         for (auto& move : moves)
         {
@@ -225,13 +234,6 @@ Move AIController::nextMove(int depth, int totalDepth, Color myColor, Color curr
 
             auto newTurn = nextMove(depth-1, totalDepth, myColor, newGame.currentPlayerTurn(),
                                     newGame, minScoreMoveForAI, maxScoreMoveForOpponent);
-
-            if (newTurn.track == -1)
-            {
-                qDebug() << "max*****" << depth;
-                newGame.printPieceLayout();
-                while(1);
-            }
 
             value = newTurn > value ? newTurn : value;
 //            qDebug() << "move: index:" << newTurn.pieceIndex
@@ -264,13 +266,6 @@ Move AIController::nextMove(int depth, int totalDepth, Color myColor, Color curr
 
             auto newTurn = nextMove(depth-1, totalDepth, myColor, newGame.currentPlayerTurn(),
                                     newGame, minScoreMoveForAI, maxScoreMoveForOpponent);
-
-            if (newTurn.track == -1)
-            {
-                qDebug() << "min*****" << depth;
-                newGame.printPieceLayout();
-                while(1);
-            }
 
             value = value < newTurn ? value : newTurn;
 //            qDebug() << "move: index:" << newTurn.pieceIndex
@@ -314,6 +309,7 @@ int AIController::evaluateBoardState(Color playerColor, const Game& game)
         }
     }
     int variant = QRandomGenerator::global()->bounded(-5000,5000);
+//    int variant = 0;
 //    gameEvalTimes.push_back(computeTimer.nsecsElapsed());
     return score + variant;
 }
